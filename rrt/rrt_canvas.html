@@ -1,0 +1,303 @@
+
+<!-- |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/|
+
+    RRT-Canvas
+
+    Rapidly-exploring Random Tree example in HTML5 Canvas
+    based on RRT and RRT-Connect algorithms by Kuffner and LaValle (2000)
+
+    @author ohseejay / https://github.com/ohseejay / https://bitbucket.org/ohseejay
+
+    Chad Jenkins
+    Laboratory for Perception RObotics and Grounded REasoning Systems
+    University of Michigan
+
+    License: Creative Commons 3.0 BY-SA
+
+|\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| |\/| -->
+
+<html>
+
+<body onload="init()">
+
+<canvas id="myCanvas" width=800 height=800 style="z-index: 10 ;border:1px solid #000000;">
+</canvas> 
+
+<script>
+
+//////////////////////////////////////////////////
+/////     INITIALIZATION FUNCTION DEFINITONS
+//////////////////////////////////////////////////
+
+function init() {
+
+    // specify rrt algorithm to use for planning
+    rrt_alg = 1;  // 0: basic rrt, 1: rrt_connect
+
+    // set the world for the planner 
+    //  (stored as "range" global variable with name "planning_scene")
+    //planning_scene = "empty";
+    planning_scene = "misc";
+    //planning_scene = "narrow1";
+    //planning_scene = "narrow2";
+    //planning_scene = "three_sections";
+    set_planning_scene();
+
+    // specify threshold radius for step size and when goal is reached
+    eps = 0.1;
+
+    // specify start and goal configurations
+    q_start_config = [0,0];
+    q_goal_config = [4,4];
+    q_init = q_start_config;
+    q_goal = q_goal_config;
+
+    // initialize search graphs from start and goal configurations
+    T_a = tree_init(q_init);
+    T_b = tree_init(q_goal);
+
+    // flag to continue rrt iterations
+    rrt_iterate = true;
+    rrt_iter_count = 0;
+    rrt_max_iterations = 10000;
+
+    // make sure the rrt iterations are not running faster than animation update
+    cur_time = Date.now();
+
+    // create textbar for text output 
+    textbar = document.createElement('div');
+    textbar.style.position = 'absolute';
+    //textbar.style.zIndex = 1;    // if you still don't see the label, try uncommenting this
+    textbar.style.width = window.width-10;
+    textbar.style["font-family"] = "Monospace";
+    textbar.style.height = 20;
+    textbar.style.color = "#000000";
+    textbar.innerHTML = "M4PRoGReS - RRT Canvas";
+    textbar.style.top = 30 + 'px';
+    textbar.style.left = 30 + 'px';
+    document.body.appendChild(textbar);
+
+    // main animation loop maintained by threejs 
+    animate();
+}
+
+
+//////////////////////////////////////////////////
+/////     ANIMATION AND INTERACTION LOOP
+//////////////////////////////////////////////////
+
+function animate() {
+
+    // alternative to using setInterval for updating in-browser drawing
+    // this effectively request that the animate function be called again for next draw
+    // http://learningwebgl.com/blog/?p=3189
+    requestAnimationFrame( animate );
+
+    draw_robot_world();
+
+    // make sure the rrt iterations are not running faster than animation update
+    if (rrt_iterate && (Date.now()-cur_time > 10)) {
+
+        // update time marker for last iteration update
+        cur_time = Date.now();
+
+    // STENCIL: implement single rrt iteration here. an asynch timing mechanism 
+    //   is used instead of a for loop to avoid blocking and non-responsiveness 
+    //   in the browser.
+    //
+    //   provided support functions:
+    //
+    //   collision_test - returns whether a given configuration is in collision
+    //   tree_init - creates a tree of configurations
+    //   tree_add_vertex - adds and displays new configuration vertex for a tree
+    //   tree_add_edge - adds and displays new tree edge between configurations
+    //   draw_highlighted_path - renders a highlighted path in a tree
+
+    }
+
+}
+
+//////////////////////////////////////////////////
+/////     STENCIL SUPPORT FUNCTIONS
+//////////////////////////////////////////////////
+
+function draw_robot_world() {
+
+    // draw start and goal configurations
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
+    ctx.fillStyle = "#0000FF";
+    ctx.fillRect((q_init[0]*100+200)-5,(q_init[1]*100+200)-5,10,10);
+    ctx.fillStyle = "#00FF00";
+    ctx.fillRect((q_goal[0]*100+200)-5,(q_goal[1]*100+200)-5,10,10);
+
+    // draw robot's world
+    for (j=0;j<range.length;j++) { 
+        ctx.fillStyle = "#8888FF";
+        ctx.fillRect((range[j][0][0]*100+200),(range[j][1][0]*100+200),(range[j][0][1]-range[j][0][0])*100,(range[j][1][1]-range[j][1][0])*100);
+    }
+ 
+}
+
+function draw_highlighted_path(path) {
+    ctx = c.getContext("2d");
+    ctx.strokeStyle="#0000FF";
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    for (i=1;i<path.length;i++) {
+        ctx.moveTo(path[i-1].vertex[0]*100+200,path[i-1].vertex[1]*100+200);
+        ctx.lineTo(path[i].vertex[0]*100+200,path[i].vertex[1]*100+200);
+    }
+    ctx.stroke();
+}
+
+function set_planning_scene() {
+
+    // obstacles specified as a range along [0] (x-dimension) and [1] y-dimension
+    range = []; // global variable
+
+    // world boundary
+    range[0] = [ [-1.8,5.8],[-1.8,-1] ];
+    range[1] = [ [-1.8,5.8],[5,5.8] ];
+    range[2] = [ [-1.8,-1], [-1.8,5.8] ];
+    range[3] = [ [5,5.8],   [-1.8,5.8] ];
+
+    if (typeof planning_scene === 'undefined')
+        planning_scene = 'empty';
+
+    if (planning_scene == 'misc') {
+        /*  misc stuff with narrow opening */
+        range[4] = [ [1,2],[1,2] ];
+        range[5] = [ [3,3.3],[1,4] ];
+        range[6] = [ [0.6,0.7],[0.4,0.7] ];
+        range[7] = [ [3.7,3.9],[-0.8,5] ];
+    }
+    else if (planning_scene == 'narrow1') {
+        /*  narrow path 1 */
+        range[4] = [ [1,3],[4,5] ];
+        range[5] = [ [1,3],[-1,2] ];
+        range[6] = [ [1,1.95],[2,3.8] ];
+    }
+    else if (planning_scene == 'narrow2') {
+        /*  narrow path 2 */
+        range[4] = [ [1,3],[4,5] ];
+        range[5] = [ [1,3],[-1,2] ];
+        range[6] = [ [1,1.9],[2,3.8] ];
+        range[7] = [ [2.1,3],[2.2,4] ];
+    }
+    else if (planning_scene == 'three_sections') {
+        /*  three compartments */
+        range[4] = [ [1,1.3],[4,5] ];
+        range[5] = [ [1,1.3],[-1,3.5] ];
+        range[6] = [ [2.7,3],[-1,0] ];
+        range[7] = [ [2.7,3],[.5,5] ];
+    }
+}
+
+function collision_test(q) {
+
+    var j;
+
+    // test for collision with each object
+    for (j=0;j<range.length;j++) { 
+
+        // assume configuration is in collision
+        var in_collision = true; 
+
+        // no collision detected, if configuration is outside obstacle along any dimension
+        for (i=0;i<q.length;i++) { 
+            if ((q[i]<range[j][i][0])||(q[i]>range[j][i][1]))
+                in_collision = false;
+        }
+    
+        // return collision, if configuration inside obstacle extents along all dimensions
+        if (in_collision)
+            return true;
+    }
+
+    // return no collision, if no collision detected with any obstacle
+    return false;
+}
+
+function tree_init(q) {
+
+    // create tree object
+    var tree = {};
+
+    // initialize with vertex for given configuration
+    tree.vertices = [];
+    tree.vertices[0] = {};
+    tree.vertices[0].vertex = q;
+    tree.vertices[0].edges = [];
+
+    // maintain index of newest vertex added to tree
+    tree.newest = 0;
+
+    return tree;
+}
+
+function tree_add_vertex(tree,q) {
+
+    // create new vertex object for tree with given configuration and no edges
+    new_vertex = {};
+    new_vertex.edges = [];
+    new_vertex.vertex = q;
+    tree.vertices.push(new_vertex);
+
+    // maintain index of newest vertex added to tree
+    tree.newest = tree.vertices.length - 1;
+
+    // draw location on canvas
+    draw_2D_configuration(q);
+}
+
+function draw_2D_configuration(q) {
+    // draw location of 2D configuration on canvas
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
+    ctx.fillStyle = "#8888AA";
+    ctx.fillRect((q[0]*100+200)-3,(q[1]*100+200)-3,6,6);
+}
+
+function draw_2D_edge_configurations(q1,q2) {
+    // draw line between locations of two 2D configurations on canvas
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(q1[0]*100+200,q1[1]*100+200);
+    ctx.lineTo(q2[0]*100+200,q2[1]*100+200);
+    ctx.stroke();
+}
+
+function tree_add_edge(tree,q1_idx,q2_idx) {
+
+    // add edge to first vertex as pointer to second vertex
+    tree.vertices[q1_idx].edges.push(tree.vertices[q2_idx]);
+
+    // add edge to second vertex as pointer to first vertex
+    tree.vertices[q2_idx].edges.push(tree.vertices[q1_idx]);
+
+    // draw edge on canvas
+    draw_2D_edge_configurations(tree.vertices[q1_idx].vertex,tree.vertices[q2_idx].vertex); 
+}
+
+//////////////////////////////////////////////////
+/////     RRT IMPLEMENTATION FUNCTIONS
+//////////////////////////////////////////////////
+
+    // STENCIL: implement RRT-Connect functions here, such as:
+    //   rrt_extend
+    //   rrt_connect
+    //   random_config
+    //   new_config
+    //   nearest_neighbor
+    //   find_path
+    //   path_dfs
+
+</script>
+
+
+</body>
+</html>
+
+
